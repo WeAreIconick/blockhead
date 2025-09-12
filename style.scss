@@ -1,0 +1,73 @@
+/*
+ * The following styles get applied both on the front of your site
+ * and in the editor.
+ */
+
+.wp-block-telex-blockhead {
+	background-color: #21759b;
+	color: #fff;
+	padding: 2px;
+}
+
+.blockhead-ascii-art {
+	font-family: monospace;
+	max-width: 100%;
+	overflow-x: hidden;
+	display: block;
+	margin: 0;
+	padding: 0;
+	white-space: pre;
+	word-break: normal;
+}
+
+.blockhead-style-card.is-active {
+	outline: 2px solid #21759b;
+	box-shadow: 0 0 0 2px #115078;
+	background: #eef4fb;
+	border-color: #21759b;
+}
+
+.blockhead-style-cards-grid {
+	display: grid;
+	grid-template-columns: repeat(2, 1fr);
+	grid-template-rows: repeat(5, auto);
+	gap: 13px 10px;
+	margin-top: 7px;
+	max-width: 360px;
+	width: 100%;
+}
+
+.blockhead-style-card {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 100%;
+	height: 70px;
+	background: #fff;
+	border-radius: 9px;
+	border: 2px solid transparent;
+	box-shadow: 0 1px 3px rgba(0,0,0,0.02);
+	text-align: center;
+	cursor: pointer;
+	transition: box-shadow 0.13s, border-color 0.13s, background 0.13s;
+	padding: 12px;
+	outline: 2px solid transparent;
+	box-sizing: border-box;
+}
+.blockhead-style-card:focus {
+	outline: 2px solid #21759b;
+	z-index: 1;
+	background: #f5fafd;
+}
+
+.blockhead-style-card span {
+	font-family: inherit;
+	font-size: 1.45rem;
+	font-weight: 600;
+	color: #222;
+	line-height: 1.2;
+	white-space: normal;
+	margin-bottom: 0;
+	display: block;
+	letter-spacing: 0.5px;
+}

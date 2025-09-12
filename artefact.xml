@@ -1,0 +1,1236 @@
+<?xml version="1.0"?><artefact name="Blockhead" slug="blockhead" type="code-package">
+  <file name="readme.txt">
+    <description>This file contains the readme information for the block. It is used to provide information about the block, its usage, and any other relevant details.</description>
+    <content><![CDATA[
+=== Blockhead ===
+
+Contributors:      iconick
+Tags:              block
+Tested up to:      6.8
+Stable tag:        1.0.0
+License:           GPLv2 or later
+License URI:       https://www.gnu.org/licenses/gpl-2.0.html
+A customizable WordPress block for displaying ASCII art in posts and pages.
+
+== Description ==
+
+Blockhead is a custom block for the WordPress block editor that allows you to easily embed, customize, and display ASCII art within your posts and pages. Perfect for adding creative flair, unique headings, dividers, or retro visuals to your content.
+
+== Installation ==
+
+1. Upload the plugin files to the `/wp-content/plugins/blockhead` directory, or install the plugin through the WordPress plugins screen directly.
+1. Activate the plugin through the 'Plugins' screen in WordPress
+
+== Frequently Asked Questions ==
+
+= How does Blockhead work? =
+
+After installing and activating the plugin, simply add the "Blockhead" block to your post or page. You'll be able to edit and preview your ASCII art directly in the editor.
+
+= Can I use any ASCII art I want? =
+
+Yes! You can enter or paste any ASCII art you'd like into the block.
+
+== Screenshots ==
+
+1. Blockhead block in the editor with some sample ASCII art.
+2. Frontend display of a post using Blockhead.
+
+== Changelog ==
+
+= 1.0.0 =
+* First public release.
+
+= 0.1.0 =
+* Initial structure
+
+== Arbitrary section ==
+
+This plugin is currently in its foundational phase. More features and customization options will be added based on your ideas.
+]]></content>
+  </file>
+  <file name="blockhead.php">
+    <description>This file contains the block registration code in the form of a single block plugin. Any other plugin related functionality should be added to this file. All block rendering functionality should go to the `render.php` file.</description>
+    <content><![CDATA[<?php
+/**
+ * Plugin Name:       Blockhead
+ * Plugin URI:        https://iconick.io
+ * Description:       A customizable WordPress block for displaying ASCII art in posts and pages.
+ * Version:           1.0.0
+ * Author:            iconick
+ * Author URI:        https://iconick.io
+ * License:           GPLv2 or later
+ * License URI:       https://www.gnu.org/licenses/gpl-2.0.html
+ * Text Domain:       blockhead-block-wp
+ *
+ * @package Blockhead
+ */
+
+if ( ! defined( 'ABSPATH' ) ) {
+	exit; // Exit if accessed directly.
+}
+/**
+ * Registers the block using the metadata loaded from the `block.json` file.
+ * Behind the scenes, it registers also all assets so they can be enqueued
+ * through the block editor in the corresponding context.
+ *
+ * @see https://developer.wordpress.org/reference/functions/register_block_type/
+ */
+function telex_blockhead_block_init() {
+	register_block_type( __DIR__ . '/build/' );
+}
+add_action( 'init', 'telex_blockhead_block_init' );
+]]></content>
+  </file>
+  <file name="block.json">
+    <description>This file contains metadata about the block including its name, title, category, icon, and other properties.</description>
+    <content><![CDATA[{
+    "$schema": "https://schemas.wp.org/trunk/block.json",
+    "apiVersion": 3,
+    "name": "telex/block-blockhead",
+    "version": "1.0.0",
+    "title": "Blockhead",
+    "category": "widgets",
+    "icon": "editor-code",
+    "description": "A customizable WordPress block for displaying ASCII art.",
+    "example": [],
+    "attributes": {
+        "text": {
+            "type": "string",
+            "default": "Blockhead"
+        },
+        "style": {
+            "type": "string",
+            "default": "block"
+        },
+        "align": {
+            "type": "string"
+        }
+    },
+    "supports": {
+        "html": false,
+        "align": [
+            "left",
+            "center",
+            "right",
+            "wide",
+            "full"
+        ]
+    },
+    "textdomain": "blockhead-block-wp",
+    "editorScript": "file:./index.js",
+    "editorStyle": "file:./index.css",
+    "style": "file:./style-index.css",
+    "viewScript": "file:./view.js"
+}]]></content>
+  </file>
+  <file name="index.js">
+    <description>This file registers the block, specifies the edit and save functions, and loads the block's metadata</description>
+    <content><![CDATA[
+  /**
+ * Registers a new block provided a unique name and an object defining its behavior.
+ *
+ * @see https://developer.wordpress.org/block-editor/reference-guides/block-api/block-registration/
+ */
+import { registerBlockType } from '@wordpress/blocks';
+
+/**
+ * Lets webpack process CSS, SASS or SCSS files referenced in JavaScript files.
+ * All files containing `style` keyword are bundled together. The code used
+ * gets applied both to the front of your site and to the editor.
+ *
+ * @see https://www.npmjs.com/package/@wordpress/scripts#using-css
+ */
+import './style.scss';
+
+/**
+ * Internal dependencies
+ */
+import Edit from './edit';
+import save from './save';
+import metadata from './block.json';
+
+/**
+ * Every block starts by registering a new block type definition.
+ *
+ * @see https://developer.wordpress.org/block-editor/reference-guides/block-api/block-registration/
+ */
+registerBlockType( metadata.name, {
+	/**
+	 * @see ./edit.js
+	 */
+	edit: Edit,
+
+	/**
+	 * @see ./save.js
+	 */
+	save,
+} );
+	]]></content>
+  </file>
+  <file name="edit.js">
+    <description>This file contains the edit function for the block which is responsible for rendering the block in the editor.</description>
+    <content><![CDATA[import { __ } from '@wordpress/i18n';
+import { useMemo, useRef, useEffect, useState } from '@wordpress/element';
+import { useBlockProps, InspectorControls, BlockControls } from '@wordpress/block-editor';
+import { TextControl, Button, Panel, PanelBody } from '@wordpress/components';
+import './editor.scss';
+import Blockhead from './blockhead-core.js';
+
+const blockHead = new Blockhead();
+const availableStyles = blockHead.getAvailableStyles();
+
+function StyleCard({ styleKey, isActive, onClick, onKeyDown }) {
+	return (
+		<Button
+			isPressed={ isActive }
+			variant={ isActive ? 'primary' : 'secondary' }
+			onClick={ () => onClick(styleKey) }
+			className={ 'blockhead-style-card' + (isActive ? ' is-active' : '') }
+			style={{
+				width: '100%',
+				height: '100%',
+				display: 'flex',
+				alignItems: 'center',
+				justifyContent: 'center',
+				background: isActive ? '#eef4fb' : '#fff',
+				border: isActive ? '2px solid #21759b' : '1px solid #ddd',
+				boxShadow: isActive ? '0 2px 8px rgba(33,117,155,0.11)' : '0 1px 3px rgba(0,0,0,0.02)',
+				borderRadius: '9px',
+				cursor: 'pointer',
+				padding: '0',
+				transition: 'border 0.14s, background 0.12s, box-shadow 0.14s',
+			}}
+			role="option"
+			tabIndex="0"
+			title={ __( styleKey.charAt(0).toUpperCase() + styleKey.slice(1), 'blockhead-block-wp' ) }
+			onKeyDown={ onKeyDown }
+		>
+			<div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center'}}>
+				<span style={{
+					fontSize: '1.45rem',
+					fontWeight: 700,
+					color: '#242d34',
+					lineHeight: 1.2,
+					whiteSpace: 'normal',
+					marginBottom: 0,
+					letterSpacing: '0.5px',
+				}}>{ styleKey.charAt(0).toUpperCase() + styleKey.slice(1) }</span>
+			</div>
+		</Button>
+	);
+}
+
+export default function Edit({ attributes, setAttributes, clientId, context }) {
+	const { text = '', style = 'block', align } = attributes;
+	const [fontSize, setFontSize] = useState('1em');
+	const preRef = useRef();
+	const containerRef = useRef();
+
+	const ascii = useMemo(
+		() => blockHead.textToASCII(text, style),
+		[text, style]
+	);
+
+	// Responsive font size that ensures the ASCII art never wraps
+	useEffect(() => {
+		if (!preRef.current || !containerRef.current) return;
+		const containerWidth = containerRef.current.offsetWidth;
+		const asciiLines = ascii.split('\n');
+		const maxLength = asciiLines.reduce((acc, l) => Math.max(acc, l.length), 1);
+		// Measure with a test span
+		const span = document.createElement('span');
+		span.style.visibility = 'hidden';
+		span.style.fontFamily = 'monospace';
+		span.style.position = 'absolute';
+		span.textContent = '█'.repeat(maxLength);
+		preRef.current.appendChild(span);
+		const asciiPixelWidth = span.offsetWidth;
+		preRef.current.removeChild(span);
+		let scale = 1;
+		if (asciiPixelWidth > 0) {
+			scale = containerWidth / asciiPixelWidth;
+		}
+		const minFontSize = 10; // px
+		const maxFontSize = 48; // px
+		let fontSizePx = Math.round(Math.max(minFontSize, Math.min(maxFontSize, 24*scale)));
+		setFontSize(`${fontSizePx}px`);
+	}, [ascii, text, style]);
+
+	// Keyboard arrow for style quick navigation
+	const onButtonKeyDown = (event) => {
+		const idx = availableStyles.indexOf(style);
+		if (event.key === 'ArrowRight' && idx < availableStyles.length - 1) {
+			setAttributes({ style: availableStyles[idx + 1] });
+			event.preventDefault();
+		} else if (event.key === 'ArrowLeft' && idx > 0) {
+			setAttributes({ style: availableStyles[idx - 1] });
+			event.preventDefault();
+		}
+	};
+
+	// Arrange style cards in a 5x2 grid (2 cols, 5 rows)
+	const styleGridRows = 5;
+	const styleGridCols = 2;
+	const gridCards = [];
+	for (let r = 0; r < styleGridRows; r++) {
+		const row = availableStyles.slice(r*styleGridCols, (r+1)*styleGridCols);
+		gridCards.push(row);
+	}
+
+	const blockProps = useBlockProps({
+		className: align ? `has-text-align-${align}` : undefined,
+		style: align ? { textAlign: align } : undefined,
+	});
+
+	return (
+		<div ref={containerRef} { ...blockProps }>
+			<BlockControls group="block">
+				{/* No manual alignment controls here; handled by supports.align */}
+			</BlockControls>
+			<InspectorControls>
+				<PanelBody title={ __( 'Blockhead settings', 'blockhead-block-wp' ) } initialOpen={ true }>
+					<TextControl
+						label={ __( 'ASCII Text', 'blockhead-block-wp' ) }
+						value={ text }
+						onChange={ ( val ) => setAttributes( { text: val } ) }
+					/>
+					<div style={{ marginTop: 20 }}>
+						<strong>{ __( 'Style', 'blockhead-block-wp' )}</strong>
+						<div
+							role="listbox"
+							aria-label={ __('ASCII Art Styles', 'blockhead-block-wp') }
+							className="blockhead-style-cards-grid"
+							style={{
+								display: 'grid',
+								gridTemplateColumns: `repeat(${styleGridCols}, 1fr)` ,
+								gridTemplateRows: `repeat(${styleGridRows}, auto)`,
+								gap: '13px 10px',
+								marginTop: 7,
+								maxWidth: 360,
+							}}
+						>
+							{gridCards.map((row, rowIdx) => (
+								row.map((styleKey, colIdx) => (
+									<StyleCard
+										key={styleKey}
+										styleKey={styleKey}
+										isActive={ style === styleKey }
+										onClick={ (s) => setAttributes({ style: s }) }
+										onKeyDown={ onButtonKeyDown }
+									/>
+								))
+							))}
+						</div>
+					</div>
+				</PanelBody>
+				<PanelBody title={ __( 'Powered by Telex', 'blockhead-block-wp' ) } initialOpen={ false }>
+					<p style={{ marginTop:0, marginBottom:8 }}>
+						{__('Telex is basically the J.A.R.V.I.S of WordPress development - an AI that builds blocks so you don\'t have to.', 'blockhead-block-wp')}
+					</p>
+					<a
+						href="https://telex.automattic.ai"
+						target="_blank"
+						rel="noopener noreferrer"
+						style={{ textDecoration:'underline', color:'#115078', fontWeight:'bold', display:'inline-block' }}
+					>
+						{__('Learn more about Telex', 'blockhead-block-wp')}
+					</a>
+				</PanelBody>
+			</InspectorControls>
+			<pre
+				className="blockhead-ascii-art"
+				style={ {
+					fontFamily: 'monospace',
+					background: 'none',
+					padding: 0,
+					margin: 0,
+					fontSize,
+					lineHeight: '1.2',
+					whiteSpace: 'pre',
+					wordBreak: 'normal',
+					maxWidth: '100%',
+					overflowX: 'hidden',
+					display: 'block',
+					textAlign: align || undefined,
+				} }
+				ref={preRef}
+				aria-label={ __( 'ASCII art preview', 'blockhead-block-wp' ) }
+				title={ __( 'ASCII art preview', 'blockhead-block-wp' ) }
+			>{ ascii }</pre>
+		</div>
+	);
+}
+]]></content>
+  </file>
+  <file name="save.js">
+    <description>This file contains the save function for the block which is responsible for creating the static result of rendering the block on the client to display the saved result on the front end.</description>
+    <content><![CDATA[import { useBlockProps } from '@wordpress/block-editor';
+import Blockhead from './blockhead-core.js';
+
+export default function save({ attributes }) {
+	const { text = '', style = 'block', align } = attributes;
+	const blockHead = new Blockhead();
+	const ascii = blockHead.textToASCII(text, style);
+
+	const blockProps = useBlockProps.save({
+		className: align ? `has-text-align-${align}` : undefined,
+		style: align ? { textAlign: align } : undefined,
+	});
+
+	return (
+		<pre
+			{ ...blockProps }
+			className="blockhead-ascii-art"
+			style={ {
+				fontFamily: 'monospace',
+				background: 'none',
+				padding: 0,
+				margin: 0,
+				fontSize: '24px',
+				lineHeight: '1.2',
+				whiteSpace: 'pre',
+				wordBreak: 'normal',
+				maxWidth: '100%',
+				overflowX: 'hidden',
+				display: 'block',
+				textAlign: align || undefined,
+			} }
+			aria-label="ASCII art output"
+		>
+			{ ascii }
+		</pre>
+	);
+}
+]]></content>
+  </file>
+  <file name="style.scss">
+    <description>This file contains styles for the block in the front end.</description>
+    <content><![CDATA[/*
+ * The following styles get applied both on the front of your site
+ * and in the editor.
+ */
+
+.wp-block-telex-blockhead {
+	background-color: #21759b;
+	color: #fff;
+	padding: 2px;
+}
+
+.blockhead-ascii-art {
+	font-family: monospace;
+	max-width: 100%;
+	overflow-x: hidden;
+	display: block;
+	margin: 0;
+	padding: 0;
+	white-space: pre;
+	word-break: normal;
+}
+
+.blockhead-style-card.is-active {
+	outline: 2px solid #21759b;
+	box-shadow: 0 0 0 2px #115078;
+	background: #eef4fb;
+	border-color: #21759b;
+}
+
+.blockhead-style-cards-grid {
+	display: grid;
+	grid-template-columns: repeat(2, 1fr);
+	grid-template-rows: repeat(5, auto);
+	gap: 13px 10px;
+	margin-top: 7px;
+	max-width: 360px;
+	width: 100%;
+}
+
+.blockhead-style-card {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 100%;
+	height: 70px;
+	background: #fff;
+	border-radius: 9px;
+	border: 2px solid transparent;
+	box-shadow: 0 1px 3px rgba(0,0,0,0.02);
+	text-align: center;
+	cursor: pointer;
+	transition: box-shadow 0.13s, border-color 0.13s, background 0.13s;
+	padding: 12px;
+	outline: 2px solid transparent;
+	box-sizing: border-box;
+}
+.blockhead-style-card:focus {
+	outline: 2px solid #21759b;
+	z-index: 1;
+	background: #f5fafd;
+}
+
+.blockhead-style-card span {
+	font-family: inherit;
+	font-size: 1.45rem;
+	font-weight: 600;
+	color: #222;
+	line-height: 1.2;
+	white-space: normal;
+	margin-bottom: 0;
+	display: block;
+	letter-spacing: 0.5px;
+}]]></content>
+  </file>
+  <file name="editor.scss">
+    <description>This file contains styles for the block in the editor.</description>
+    <content><![CDATA[/*
+ * The following styles get applied inside the editor only.
+ */
+
+.wp-block-telex-blockhead {
+	border: 1px dotted #f00;
+}
+
+.blockhead-ascii-art {
+	font-family: monospace;
+	max-width: 100%;
+	overflow-x: hidden;
+	display: block;
+	margin: 0;
+	padding: 0;
+	white-space: pre;
+	word-break: normal;
+}
+
+.blockhead-style-cards-grid {
+	display: grid;
+	grid-template-columns: repeat(2, 1fr);
+	grid-template-rows: repeat(5, auto);
+	gap: 13px 10px;
+	margin-top: 7px;
+	max-width: 360px;
+	width: 100%;
+}
+
+.blockhead-style-card {
+	font-family: inherit;
+	font-size: 1.19em;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 100%;
+	height: 70px;
+	border-radius: 9px;
+	text-align: center;
+	box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+	border: 2px solid transparent;
+	background: #fff;
+	padding: 12px !important;
+	cursor: pointer;
+	transition: box-shadow 0.13s, border-color 0.13s, background 0.13s;
+	outline: 2px solid transparent;
+	box-sizing: border-box;
+}
+
+.blockhead-style-card.is-active {
+	outline: 2px solid #21759b;
+	box-shadow: 0 0 0 2px #115078;
+	background: #eef4fb;
+	border-color: #21759b;
+}
+
+.blockhead-style-card span {
+	font-size: 1.45rem;
+	font-weight: bold;
+	color: #1d2327;
+	line-height: 1.12;
+	margin-bottom: 0;
+	display: block;
+	letter-spacing: 0.5px;
+}]]></content>
+  </file>
+  <file name="view.js">
+    <description>This file contains the view function for the block which is responsible for rendering interactive behaviors of the block on the front end. Ideally using the WordPress interactivity API.</description>
+    <content><![CDATA[
+  /**
+ * Use this file for JavaScript code that you want to run in the front-end
+ * on posts/pages that contain this block.
+ *
+ * When this file is defined as the value of the `viewScript` property
+ * in `block.json` it will be enqueued on the front end of the site.
+ *
+ * Example:
+ *
+ * ```js
+ * {
+ *   "viewScript": "file:./view.js"
+ * }
+ * ```
+ *
+ * If you're not making any changes to this file because your project doesn't need any
+ * JavaScript running in the front-end, then you should delete this file and remove
+ * the `viewScript` property from `block.json`.
+ *
+ * @see https://developer.wordpress.org/block-editor/reference-guides/block-api/block-metadata/#view-script
+ */
+ 
+/* eslint-disable no-console */
+console.log("Hello World! (from telex-blockhead block)");
+/* eslint-enable no-console */
+	]]></content>
+  </file>
+  <file name="render.php">
+    <description>This file contains the render callback function for the block, which is responsible for rendering the block content on the front end. A render function should exist only if the block is dynamic.</description>
+    <content><![CDATA[]]></content>
+  </file>
+  <file name="package.json">
+    <description>The AI assistant should only edit 'user_provided_block_name_slug', 'description' and resolve 'isDynamicVariant' in this file and ALWAYS INCLUDE IT. This file includes the necessary scripts for building, formatting, and linting the block code. Dependencies are managed at the workspace level via pnpm.</description>
+    <content><![CDATA[{
+    "name": "blockhead",
+    "version": "1.0.0",
+    "description": "A customizable WordPress block for displaying ASCII art in posts and pages.",
+    "author": "iconick",
+    "license": "GPL-2.0-or-later",
+    "main": "build/index.js",
+    "scripts": {
+        "build": "wp-scripts build --webpack-copy-php",
+        "format": "wp-scripts format",
+        "lint:css": "wp-scripts lint-style",
+        "lint:js": "wp-scripts lint-js",
+        "packages-update": "wp-scripts packages-update",
+        "plugin-zip": "wp-scripts plugin-zip",
+        "start": "wp-scripts start --blocks-manifest"
+    }
+}]]></content>
+  </file>
+  <file name="blockhead-core.js">
+    <description>This file will contain the core BlockHead ASCII art generator logic shared by editor and frontend.</description>
+    <content><![CDATA[/**
+ * Blockhead - ASCII Art Text Generator
+ * Converts text into ASCII art using various styles
+ */
+class Blockhead {
+  constructor() {
+    // Character patterns (5x7 grid for each character)
+    this.patterns = {
+      'A': [
+        '  █  ',
+        ' █ █ ',
+        '█   █',
+        '█████',
+        '█   █',
+        '█   █',
+        '     '
+      ],
+      'B': [
+        '████ ',
+        '█   █',
+        '█   █',
+        '████ ',
+        '█   █',
+        '█   █',
+        '████ '
+      ],
+      'C': [
+        ' ████',
+        '█    ',
+        '█    ',
+        '█    ',
+        '█    ',
+        '█    ',
+        ' ████'
+      ],
+      'D': [
+        '████ ',
+        '█   █',
+        '█   █',
+        '█   █',
+        '█   █',
+        '█   █',
+        '████ '
+      ],
+      'E': [
+        '█████',
+        '█    ',
+        '█    ',
+        '████ ',
+        '█    ',
+        '█    ',
+        '█████'
+      ],
+      'F': [
+        '█████',
+        '█    ',
+        '█    ',
+        '████ ',
+        '█    ',
+        '█    ',
+        '█    '
+      ],
+      'G': [
+        ' ████',
+        '█    ',
+        '█    ',
+        '█ ███',
+        '█   █',
+        '█   █',
+        ' ████'
+      ],
+      'H': [
+        '█   █',
+        '█   █',
+        '█   █',
+        '█████',
+        '█   █',
+        '█   █',
+        '█   █'
+      ],
+      'I': [
+        '█████',
+        '  █  ',
+        '  █  ',
+        '  █  ',
+        '  █  ',
+        '  █  ',
+        '█████'
+      ],
+      'J': [
+        '█████',
+        '    █',
+        '    █',
+        '    █',
+        '    █',
+        '█   █',
+        ' ████'
+      ],
+      'K': [
+        '█   █',
+        '█  █ ',
+        '█ █  ',
+        '██   ',
+        '█ █  ',
+        '█  █ ',
+        '█   █'
+      ],
+      'L': [
+        '█    ',
+        '█    ',
+        '█    ',
+        '█    ',
+        '█    ',
+        '█    ',
+        '█████'
+      ],
+      'M': [
+        '█   █',
+        '██ ██',
+        '█ █ █',
+        '█   █',
+        '█   █',
+        '█   █',
+        '█   █'
+      ],
+      'N': [
+        '█   █',
+        '██  █',
+        '█ █ █',
+        '█  ██',
+        '█   █',
+        '█   █',
+        '█   █'
+      ],
+      'O': [
+        ' ███ ',
+        '█   █',
+        '█   █',
+        '█   █',
+        '█   █',
+        '█   █',
+        ' ███ '
+      ],
+      'P': [
+        '████ ',
+        '█   █',
+        '█   █',
+        '████ ',
+        '█    ',
+        '█    ',
+        '█    '
+      ],
+      'Q': [
+        ' ███ ',
+        '█   █',
+        '█   █',
+        '█   █',
+        '█ █ █',
+        '█  ██',
+        ' ████'
+      ],
+      'R': [
+        '████ ',
+        '█   █',
+        '█   █',
+        '████ ',
+        '█ █  ',
+        '█  █ ',
+        '█   █'
+      ],
+      'S': [
+        ' ████',
+        '█    ',
+        '█    ',
+        ' ███ ',
+        '    █',
+        '    █',
+        '████ '
+      ],
+      'T': [
+        '█████',
+        '  █  ',
+        '  █  ',
+        '  █  ',
+        '  █  ',
+        '  █  ',
+        '  █  '
+      ],
+      'U': [
+        '█   █',
+        '█   █',
+        '█   █',
+        '█   █',
+        '█   █',
+        '█   █',
+        ' ███ '
+      ],
+      'V': [
+        '█   █',
+        '█   █',
+        '█   █',
+        '█   █',
+        '█   █',
+        ' █ █ ',
+        '  █  '
+      ],
+      'W': [
+        '█   █',
+        '█   █',
+        '█   █',
+        '█   █',
+        '█ █ █',
+        '██ ██',
+        '█   █'
+      ],
+      'X': [
+        '█   █',
+        ' █ █ ',
+        '  █  ',
+        '  █  ',
+        '  █  ',
+        ' █ █ ',
+        '█   █'
+      ],
+      'Y': [
+        '█   █',
+        '█   █',
+        ' █ █ ',
+        '  █  ',
+        '  █  ',
+        '  █  ',
+        '  █  '
+      ],
+      'Z': [
+        '█████',
+        '    █',
+        '   █ ',
+        '  █  ',
+        ' █   ',
+        '█    ',
+        '█████'
+      ],
+      '0': [
+        ' ███ ',
+        '█   █',
+        '█  ██',
+        '█ █ █',
+        '██  █',
+        '█   █',
+        ' ███ '
+      ],
+      '1': [
+        '  █  ',
+        ' ██  ',
+        '  █  ',
+        '  █  ',
+        '  █  ',
+        '  █  ',
+        '█████'
+      ],
+      '2': [
+        ' ███ ',
+        '█   █',
+        '    █',
+        '   █ ',
+        '  █  ',
+        ' █   ',
+        '█████'
+      ],
+      '3': [
+        ' ███ ',
+        '█   █',
+        '    █',
+        '  ██ ',
+        '    █',
+        '█   █',
+        ' ███ '
+      ],
+      '4': [
+        '   █ ',
+        '  ██ ',
+        ' █ █ ',
+        '█  █ ',
+        '█████',
+        '   █ ',
+        '   █ '
+      ],
+      '5': [
+        '█████',
+        '█    ',
+        '████ ',
+        '    █',
+        '    █',
+        '█   █',
+        ' ███ '
+      ],
+      '6': [
+        ' ███ ',
+        '█   █',
+        '█    ',
+        '████ ',
+        '█   █',
+        '█   █',
+        ' ███ '
+      ],
+      '7': [
+        '█████',
+        '    █',
+        '   █ ',
+        '  █  ',
+        ' █   ',
+        '█    ',
+        '█    '
+      ],
+      '8': [
+        ' ███ ',
+        '█   █',
+        '█   █',
+        ' ███ ',
+        '█   █',
+        '█   █',
+        ' ███ '
+      ],
+      '9': [
+        ' ███ ',
+        '█   █',
+        '█   █',
+        ' ████',
+        '    █',
+        '█   █',
+        ' ███ '
+      ],
+      ' ': [
+        '     ',
+        '     ',
+        '     ',
+        '     ',
+        '     ',
+        '     ',
+        '     '
+      ],
+      '!': [
+        '  █  ',
+        '  █  ',
+        '  █  ',
+        '  █  ',
+        '  █  ',
+        '     ',
+        '  █  '
+      ],
+      '?': [
+        ' ███ ',
+        '█   █',
+        '    █',
+        '   █ ',
+        '  █  ',
+        '     ',
+        '  █  '
+      ],
+      '.': [
+        '     ',
+        '     ',
+        '     ',
+        '     ',
+        '     ',
+        '     ',
+        '  █  '
+      ],
+      ',': [
+        '     ',
+        '     ',
+        '     ',
+        '     ',
+        '     ',
+        '  █  ',
+        ' █   '
+      ],
+      ':': [
+        '     ',
+        '     ',
+        '  █  ',
+        '     ',
+        '     ',
+        '  █  ',
+        '     '
+      ],
+      ';': [
+        '     ',
+        '     ',
+        '  █  ',
+        '     ',
+        '     ',
+        '  █  ',
+        ' █   '
+      ],
+      '-': [
+        '     ',
+        '     ',
+        '     ',
+        '█████',
+        '     ',
+        '     ',
+        '     '
+      ],
+      '_': [
+        '     ',
+        '     ',
+        '     ',
+        '     ',
+        '     ',
+        '     ',
+        '█████'
+      ]
+    };
+  }
+
+  /**
+   * Main API function - converts text to ASCII art
+   * @param {string} text - The text to convert
+   * @param {string} style - The style to apply (default: 'block')
+   * @returns {string} ASCII art representation of the text
+   */
+  textToASCII(text, style = 'block') {
+    if (!text || typeof text !== 'string') {
+      return '';
+    }
+
+    const upperText = text.toUpperCase();
+    const lines = ['', '', '', '', '', '', ''];
+    
+    for (let i = 0; i < upperText.length; i++) {
+      const char = upperText[i];
+      const pattern = this.patterns[char] || this.patterns[' '];
+      
+      for (let lineIndex = 0; lineIndex < 7; lineIndex++) {
+        lines[lineIndex] += pattern[lineIndex];
+        if (i < upperText.length - 1) {
+          lines[lineIndex] += ' '; // Add spacing between characters
+        }
+      }
+    }
+
+    let result = lines.join('\n');
+
+    // Apply style transformations
+    switch (style) {
+      case 'classic':
+        result = this.convertToClassicASCII(result);
+        break;
+      case 'minimal':
+        result = this.convertToMinimalASCII(result);
+        break;
+      case 'double':
+        result = this.convertToDoubleASCII(result);
+        break;
+      case 'dots':
+        result = this.convertToDotsASCII(result);
+        break;
+      case 'pipes':
+        result = this.convertToPipesASCII(result);
+        break;
+      case 'retro':
+        result = this.convertToRetroASCII(result);
+        break;
+      case 'outline':
+        result = this.convertToOutlineASCII(result);
+        break;
+      case 'shadow':
+        result = this.convertToShadowASCII(result);
+        break;
+      case 'gradient':
+        result = this.convertToGradientASCII(result);
+        break;
+    }
+
+    return result;
+  }
+
+  /**
+   * Get list of available characters
+   * @returns {Array} Array of supported characters
+   */
+  getAvailableChars() {
+    return Object.keys(this.patterns);
+  }
+
+  /**
+   * Get list of available styles
+   * @returns {Array} Array of style names
+   */
+  getAvailableStyles() {
+    return [
+      'block', 'classic', 'minimal', 'double', 'dots', 
+      'pipes', 'retro', 'outline', 'shadow', 'gradient'
+    ];
+  }
+
+  // Style conversion methods
+  convertToClassicASCII(blockText) {
+    return blockText.replace(/█/g, '#');
+  }
+
+  convertToMinimalASCII(blockText) {
+    return blockText.replace(/█/g, '*');
+  }
+
+  convertToDoubleASCII(blockText) {
+    return blockText.replace(/█/g, '▓');
+  }
+
+  convertToDotsASCII(blockText) {
+    return blockText.replace(/█/g, '•');
+  }
+
+  convertToPipesASCII(blockText) {
+    const lines = blockText.split('\n');
+    return lines.map((line, lineIndex) => {
+      let result = '';
+      for (let i = 0; i < line.length; i++) {
+        if (line[i] === '█') {
+          if (lineIndex === 0 || lineIndex === 6) {
+            result += '-';
+          } else if (i === 0 || (i > 0 && line[i-1] === ' ')) {
+            result += '|';
+          } else if (i === line.length - 1 || (i < line.length - 1 && line[i+1] === ' ')) {
+            result += '|';
+          } else {
+            result += '=';
+          }
+        } else {
+          result += line[i];
+        }
+      }
+      return result;
+    }).join('\n');
+  }
+
+  convertToRetroASCII(blockText) {
+    return blockText.replace(/█/g, '▉');
+  }
+
+  convertToOutlineASCII(blockText) {
+    const lines = blockText.split('\n');
+    return lines.map((line, lineIndex) => {
+      let result = '';
+      for (let i = 0; i < line.length; i++) {
+        if (line[i] === '█') {
+          const isTopEdge = lineIndex === 0 || (lineIndex > 0 && lines[lineIndex - 1][i] !== '█');
+          const isBottomEdge = lineIndex === lines.length - 1 || (lineIndex < lines.length - 1 && lines[lineIndex + 1][i] !== '█');
+          const isLeftEdge = i === 0 || line[i - 1] !== '█';
+          const isRightEdge = i === line.length - 1 || line[i + 1] !== '█';
+          
+          if (isTopEdge || isBottomEdge || isLeftEdge || isRightEdge) {
+            result += '█';
+          } else {
+            result += ' ';
+          }
+        } else {
+          result += line[i];
+        }
+      }
+      return result;
+    }).join('\n');
+  }
+
+  convertToShadowASCII(blockText) {
+    const lines = blockText.split('\n');
+    const result = [];
+    
+    for (let lineIndex = 0; lineIndex < lines.length; lineIndex++) {
+      let line = '';
+      for (let i = 0; i < lines[lineIndex].length; i++) {
+        if (lines[lineIndex][i] === '█') {
+          line += '█';
+        } else {
+          const hasBlockAbove = lineIndex > 0 && lines[lineIndex - 1][i] === '█';
+          const hasBlockLeft = i > 0 && lines[lineIndex][i - 1] === '█';
+          
+          if (hasBlockAbove || hasBlockLeft) {
+            line += '▒';
+          } else {
+            line += ' ';
+          }
+        }
+      }
+      result.push(line);
+    }
+    
+    return result.join('\n');
+  }
+
+  convertToGradientASCII(blockText) {
+    const gradientChars = ['█', '▓', '▒', '░'];
+    const lines = blockText.split('\n');
+    
+    return lines.map((line, lineIndex) => {
+      return line.split('').map((char, charIndex) => {
+        if (char === '█') {
+          const gradientIndex = (lineIndex + charIndex) % gradientChars.length;
+          return gradientChars[gradientIndex];
+        }
+        return char;
+      }).join('');
+    }).join('\n');
+  }
+}
+
+// ES Module export for WordPress blocks
+export default Blockhead;
+
+// Usage example:
+/*
+import Blockhead from './blockhead-core.js';
+
+const blockhead = new Blockhead();
+
+// Basic usage
+const ascii = blockhead.textToASCII("HELLO");
+console.log(ascii);
+
+// With style
+const classic = blockhead.textToASCII("HELLO", "classic");
+console.log(classic);
+
+// Get available options
+console.log('Available characters:', blockhead.getAvailableChars());
+console.log('Available styles:', blockhead.getAvailableStyles());
+*/]]></content>
+  </file>
+</artefact>

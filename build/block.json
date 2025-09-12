@@ -1,0 +1,39 @@
+{
+  "$schema": "https://schemas.wp.org/trunk/block.json",
+  "apiVersion": 3,
+  "name": "telex/block-blockhead",
+  "version": "1.0.0",
+  "title": "Blockhead",
+  "category": "widgets",
+  "icon": "editor-code",
+  "description": "A customizable WordPress block for displaying ASCII art.",
+  "example": [],
+  "attributes": {
+    "text": {
+      "type": "string",
+      "default": "Blockhead"
+    },
+    "style": {
+      "type": "string",
+      "default": "block"
+    },
+    "align": {
+      "type": "string"
+    }
+  },
+  "supports": {
+    "html": false,
+    "align": [
+      "left",
+      "center",
+      "right",
+      "wide",
+      "full"
+    ]
+  },
+  "textdomain": "blockhead-block-wp",
+  "editorScript": "file:./index.js",
+  "editorStyle": "file:./index.css",
+  "style": "file:./style-index.css",
+  "viewScript": "file:./view.js"
+}
