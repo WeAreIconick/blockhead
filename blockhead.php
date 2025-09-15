@@ -1,10 +1,11 @@
 <?php
 /**
  * Plugin Name:       Blockhead
- * Plugin URI:        https://iconick.io
  * Description:       A customizable WordPress block for displaying ASCII art in posts and pages.
  * Version:           1.0.0
- * Author:            iconick
+ * Requires at least: 6.0
+ * Requires PHP:      7.4
+ * Author:      	  iconick
  * Author URI:        https://iconick.io
  * License:           GPLv2 or later
  * License URI:       https://www.gnu.org/licenses/gpl-2.0.html
